@@ -1,1 +1,12 @@
-# service file for UxPlay... todo...
+[Unit]
+Description=UxPlay
+Requires=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/uxplay -bt709
+Restart=on-failure
+User=uxplay
+
+[Install]
+WantedBy=multi-user.target
