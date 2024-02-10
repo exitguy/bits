@@ -1,10 +1,11 @@
 [Unit]
 Description=UxPlay
-Requires=network-online.target
+Documentation=https://github.com/FDH2/UxPlay
+After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/uxplay -bt709
+ExecStart=/usr/local/bin/uxplay
 Restart=on-failure
 User=uxplay
 
