@@ -1,0 +1,708 @@
+# Basic setup for ESPHome on the CrowPanel Advanced 7" ESP-P4 panel.
+#
+# WARNING: This was mostly written by AI (confer.io). Use at your own risk!
+#
+# Make sure to change your Wi-FI SSID and passowrd.
+#
+# You might also want to change the api-key, which is used
+# to allow ESPHome to connect with this device.
+#
+
+esphome:
+  name: crowpanel-ha
+  friendly_name: Home Assistant Panel
+  on_boot:
+    priority: 800
+    then:
+      - logger.log: "Backlight ON"
+      - output.turn_on: backlight_pwm
+      - delay: 200ms
+      - output.turn_off: power_light
+      - delay: 500ms
+      - light.turn_on:
+          id: back_light
+          brightness: 1
+      - delay: 1s
+      - lvgl.widget.hide: page_lights
+      - lvgl.widget.hide: page_climate
+      - lvgl.widget.hide: page_covers
+      - lvgl.widget.hide: page_scenes
+      - lvgl.widget.show: page_home
+
+esp32:
+  variant: esp32p4
+  engineering_sample: true  
+  cpu_frequency: 360MHZ
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    advanced:
+      execute_from_psram: true
+      enable_idf_experimental_features: true
+
+# PSRAM (required by MIPI-DSI display)
+psram:
+  mode: hex
+  speed: 200MHz
+
+# ESP LDO (required by MIPI-DSI display)
+esp_ldo:
+  - channel: 3
+    voltage: 2.5V
+  - channel: 4
+    voltage: 2.5V
+
+logger:
+  level: info
+  logs:
+    lvgl: info
+  hardware_uart: UART0
+
+api:
+  encryption:
+    key: "Dp4Wgl1jj5F++6mnzSma7lHvgHCGfghlE/ohT96S+jw="
+
+ota:
+  - platform: esphome
+    password: "bf1c7324cdcd0f41044c7722cbf5a048"
+
+# ESP32-C6 Hosted for WiFi/BT
+esp32_hosted:
+  variant: esp32c6
+  active_high: true
+  reset_pin: GPIO32
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+
+wifi:
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+  ap:
+    ssid: "CrowPanel-HA"
+    password: "eW0iGlqyJxnC"
+
+# Captive Portal (separate component)
+captive_portal:
+
+i2c:
+  - id: bus_a
+    sda: GPIO45
+    scl: GPIO46
+    frequency: 400kHz
+
+# Touchscreen
+touchscreen:
+  - platform: gt911
+    id: my_touchscreen
+    i2c_id: bus_a
+    reset_pin: GPIO40
+    interrupt_pin: GPIO42
+    update_interval: 50ms
+    transform:
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
+
+# Backlight
+output:
+  - platform: ledc
+    pin: GPIO31
+    id: backlight_pwm
+  - platform: gpio
+    id: power_light
+    pin: GPIO29
+    inverted: true
+
+light:
+  - platform: monochromatic
+    name: "Backlight"
+    output: backlight_pwm
+    id: back_light
+    restore_mode: ALWAYS_ON
+    internal: true
+
+# Display
+display:
+  - platform: mipi_dsi
+    id: my_display
+    model: WAVESHARE-ESP32-P4-WIFI6-TOUCH-LCD-7B
+    reset_pin: GPIO41
+    update_interval: never
+    auto_clear_enabled: false
+    dimensions:
+      width: 1024
+      height: 600
+    color_order: RGB
+    color_depth: 16
+
+# LVGL Interface
+lvgl:
+  buffer_size: 50%
+  byte_order: little_endian
+  color_depth: 16
+  log_level: INFO
+  bg_color: 0xF0F0F0
+  text_font: montserrat_24
+  
+  widgets:
+    # === HOME PAGE ===
+    - obj:
+        id: page_home
+        x: 0
+        y: 0
+        width: 100%
+        height: 100%
+        bg_color: 0xF0F0F0
+        widgets:
+          - label:
+              text: "Home"
+              align: TOP_LEFT
+              x: 20
+              y: 20
+              text_color: 0x333333
+              text_font: montserrat_28
+          - label:
+              id: lbl_time
+              align: TOP_RIGHT
+              x: -20
+              y: 20
+              text_color: 0x666666
+              text_font: montserrat_24
+
+          - obj:
+              x: 50
+              y: 100
+              width: 924
+              height: 450
+              bg_color: 0xFFFFFF
+              bg_opa: COVER
+              pad_all: 20
+              widgets:
+                - button:
+                    x: 20
+                    y: 20
+                    width: 280
+                    height: 180
+                    bg_color: 0xF39C12
+                    on_click:
+                      then:
+                        - lvgl.widget.show: page_lights
+                    widgets:
+                      - label:
+                          text: "Lights"
+                          align: CENTER
+                          text_color: 0xFFFFFF
+                          text_font: montserrat_28
+
+                - button:
+                    x: 320
+                    y: 20
+                    width: 280
+                    height: 180
+                    bg_color: 0xE74C3C
+                    on_click:
+                      then:
+                        - lvgl.widget.show: page_climate
+                    widgets:
+                      - label:
+                          text: "Climate"
+                          align: CENTER
+                          text_color: 0xFFFFFF
+                          text_font: montserrat_28
+
+                - button:
+                    x: 620
+                    y: 20
+                    width: 280
+                    height: 180
+                    bg_color: 0x27AE60
+                    on_click:
+                      then:
+                        - lvgl.widget.show: page_covers
+                    widgets:
+                      - label:
+                          text: "Covers"
+                          align: CENTER
+                          text_color: 0xFFFFFF
+                          text_font: montserrat_28
+
+                - button:
+                    x: 20
+                    y: 220
+                    width: 280
+                    height: 180
+                    bg_color: 0x9B59B6
+                    on_click:
+                      then:
+                        - lvgl.widget.show: page_scenes
+                    widgets:
+                      - label:
+                          text: "Scenes"
+                          align: CENTER
+                          text_color: 0xFFFFFF
+                          text_font: montserrat_28
+
+                - obj:
+                    x: 320
+                    y: 220
+                    width: 580
+                    height: 180
+                    bg_color: 0xECF0F1
+                    pad_all: 15
+                    widgets:
+                      - label:
+                          id: lbl_temp
+                          text: "Loading..."
+                          align: LEFT_MID
+                          y: 20
+                          text_color: 0x333333
+                      - label:
+                          id: lbl_humidity
+                          text: "Loading..."
+                          align: LEFT_MID
+                          y: 60
+                          text_color: 0x333333
+
+    # === LIGHTS PAGE ===
+    - obj:
+        id: page_lights
+        x: 0
+        y: 0
+        width: 100%
+        height: 100%
+        bg_color: 0xF0F0F0
+        hidden: true
+        bg_opa: COVER
+        widgets:
+          - button:
+              x: 20
+              y: 20
+              width: 100
+              height: 60
+              bg_color: 0x95A5A6
+              on_click:
+                then:
+                  - lvgl.widget.hide: page_lights
+                  - lvgl.widget.show: page_home
+              widgets:
+                - label:
+                    text: "Back"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - label:
+              text: "Lights"
+              align: TOP_MID
+              y: 35
+              text_color: 0x333333
+              text_font: montserrat_28
+
+          - button:
+              x: 50
+              y: 100
+              width: 400
+              height: 100
+              bg_color: 0xF39C12
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: light.toggle
+                      data:
+                        entity_id: light.living_room
+              widgets:
+                - label:
+                    text: "Living Room"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - button:
+              x: 50
+              y: 220
+              width: 400
+              height: 100
+              bg_color: 0xF39C12
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: light.toggle
+                      data:
+                        entity_id: light.kitchen
+              widgets:
+                - label:
+                    text: "Kitchen"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - button:
+              x: 50
+              y: 340
+              width: 400
+              height: 100
+              bg_color: 0xF39C12
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: light.toggle
+                      data:
+                        entity_id: light.bedroom
+              widgets:
+                - label:
+                    text: "Bedroom"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - button:
+              x: 50
+              y: 460
+              width: 400
+              height: 100
+              bg_color: 0xF39C12
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: light.turn_off
+                      data:
+                        entity_id: all_lights
+              widgets:
+                - label:
+                    text: "All Off"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+    # === CLIMATE PAGE ===
+    - obj:
+        id: page_climate
+        x: 0
+        y: 0
+        width: 100%
+        height: 100%
+        bg_color: 0xF0F0F0
+        hidden: true
+        bg_opa: COVER
+        widgets:
+          - button:
+              x: 20
+              y: 20
+              width: 100
+              height: 60
+              bg_color: 0x95A5A6
+              on_click:
+                then:
+                  - lvgl.widget.hide: page_climate
+                  - lvgl.widget.show: page_home
+              widgets:
+                - label:
+                    text: "Back"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - label:
+              text: "Climate"
+              align: TOP_MID
+              y: 35
+              text_color: 0x333333
+              text_font: montserrat_28
+
+          - label:
+              id: lbl_climate_temp
+              text: "--.-C"
+              align: CENTER
+              y: 150
+              text_color: 0xE74C3C
+              text_font: montserrat_48
+
+          - button:
+              x: 100
+              y: 250
+              width: 250
+              height: 80
+              bg_color: 0xE74C3C
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: climate.set_hvac_mode
+                      data:
+                        entity_id: climate.living_room
+                        hvac_mode: "heat"
+              widgets:
+                - label:
+                    text: "Heat"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - button:
+              x: 385
+              y: 250
+              width: 250
+              height: 80
+              bg_color: 0x3498DB
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: climate.set_hvac_mode
+                      data:
+                        entity_id: climate.living_room
+                        hvac_mode: "cool"
+              widgets:
+                - label:
+                    text: "Cool"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - button:
+              x: 670
+              y: 250
+              width: 250
+              height: 80
+              bg_color: 0x95A5A6
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: climate.set_hvac_mode
+                      data:
+                        entity_id: climate.living_room
+                        hvac_mode: "off"
+              widgets:
+                - label:
+                    text: "Off"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+    # === COVERS PAGE ===
+    - obj:
+        id: page_covers
+        x: 0
+        y: 0
+        width: 100%
+        height: 100%
+        bg_color: 0xF0F0F0
+        hidden: true
+        bg_opa: COVER
+        widgets:
+          - button:
+              x: 20
+              y: 20
+              width: 100
+              height: 60
+              bg_color: 0x95A5A6
+              on_click:
+                then:
+                  - lvgl.widget.hide: page_covers
+                  - lvgl.widget.show: page_home
+              widgets:
+                - label:
+                    text: "Back"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - label:
+              text: "Covers"
+              align: TOP_MID
+              y: 35
+              text_color: 0x333333
+              text_font: montserrat_28
+
+          - button:
+              x: 50
+              y: 150
+              width: 400
+              height: 100
+              bg_color: 0x27AE60
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: cover.open_cover
+                      data:
+                        entity_id: cover.all_covers
+              widgets:
+                - label:
+                    text: "Open All"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - button:
+              x: 50
+              y: 270
+              width: 400
+              height: 100
+              bg_color: 0xE74C3C
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: cover.close_cover
+                      data:
+                        entity_id: cover.all_covers
+              widgets:
+                - label:
+                    text: "Close All"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - button:
+              x: 50
+              y: 390
+              width: 400
+              height: 100
+              bg_color: 0xF39C12
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: cover.stop_cover
+                      data:
+                        entity_id: cover.all_covers
+              widgets:
+                - label:
+                    text: "Stop"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+    # === SCENES PAGE ===
+    - obj:
+        id: page_scenes
+        x: 0
+        y: 0
+        width: 100%
+        height: 100%
+        bg_color: 0xF0F0F0
+        hidden: true
+        bg_opa: COVER
+        widgets:
+          - button:
+              x: 20
+              y: 20
+              width: 100
+              height: 60
+              bg_color: 0x95A5A6
+              on_click:
+                then:
+                  - lvgl.widget.hide: page_scenes
+                  - lvgl.widget.show: page_home
+              widgets:
+                - label:
+                    text: "Back"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - label:
+              text: "Scenes"
+              align: TOP_MID
+              y: 35
+              text_color: 0x333333
+              text_font: montserrat_28
+
+          - button:
+              x: 50
+              y: 150
+              width: 400
+              height: 100
+              bg_color: 0xF39C12
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: scene.turn_on
+                      data:
+                        entity_id: scene.morning
+              widgets:
+                - label:
+                    text: "Morning"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - button:
+              x: 50
+              y: 270
+              width: 400
+              height: 100
+              bg_color: 0x9B59B6
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: scene.turn_on
+                      data:
+                        entity_id: scene.evening
+              widgets:
+                - label:
+                    text: "Evening"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+          - button:
+              x: 50
+              y: 390
+              width: 400
+              height: 100
+              bg_color: 0x34495E
+              on_click:
+                then:
+                  - homeassistant.service:
+                      service: scene.turn_on
+                      data:
+                        entity_id: scene.movie
+              widgets:
+                - label:
+                    text: "Movie"
+                    align: CENTER
+                    text_color: 0xFFFFFF
+
+# Time from Home Assistant
+time:
+  - platform: homeassistant
+    id: ha_time
+    timezone: "Europe/Amsterdam"
+    on_time_sync:
+      then:
+        - lvgl.label.update:
+            id: lbl_time
+            text: !lambda |-
+              auto now = id(ha_time).now();
+              static char buf[10];
+              sprintf(buf, "%02d:%02d", now.hour, now.minute);
+              return buf;
+
+# Temperature sensor display
+text_sensor:
+  - platform: homeassistant
+    id: ha_temperature
+    entity_id: sensor.living_room_temperature
+    internal: true
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_temp
+            text: !lambda |-
+              static char buf[30];
+              sprintf(buf, "Temp: %sC", x.c_str());
+              return buf;
+            
+  - platform: homeassistant
+    id: ha_humidity
+    entity_id: sensor.living_room_humidity
+    internal: true
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_humidity
+            text: !lambda |-
+              static char buf[30];
+              sprintf(buf, "Humidity: %s%%", x.c_str());
+              return buf;
+
+# Climate temperature display
+sensor:
+  - platform: homeassistant
+    id: ha_climate_temp
+    entity_id: climate.living_room
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_climate_temp
+            text: !lambda |-
+              static char buf[10];
+              sprintf(buf, "%.1fC", x);
+              return buf;
